@@ -1,0 +1,26 @@
+# Ignore all dot files except
+.*
+!.editorconfig
+!.eslintrc.yaml
+!.gitignore
+!.npmrc
+!.nvmrc
+!.prettierrc
+
+# Ignore build assets
+lib/
+
+######################
+# Node
+######################
+node_modules/
+
+######################
+# IntelliJ
+######################
+.idea/
+
+######################
+# Visual Studio Code
+######################
+.vscode/
