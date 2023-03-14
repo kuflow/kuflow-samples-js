@@ -49,17 +49,17 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
 
   const taskLoanApplication = await createTaskLoanApplication(workflowRequest)
 
-  const currency = getElementValueAsString(taskLoanApplication, 'currency')
-  const amount = getElementValueAsString(taskLoanApplication, 'amount')
+  const currency = getElementValueAsString(taskLoanApplication, 'CURRENCY')
+  const amount = getElementValueAsString(taskLoanApplication, 'AMOUNT')
 
   const amountEUR = await convertToEuros(currency, amount)
 
   let loanAuthorized = true
   if (amountEUR > 5_000) {
     const taskApproveLoan = await createTaskApproveLoan(taskLoanApplication, amountEUR)
-    const authorized = getElementValueAsString(taskApproveLoan, 'authorized')
+    const approval = getElementValueAsString(taskApproveLoan, 'APPROVAL')
 
-    loanAuthorized = authorized === 'OK'
+    loanAuthorized = approval === 'YES'
   }
 
   const process = await retrieveProcess(workflowRequest)
@@ -85,7 +85,7 @@ async function createTaskLoanApplication(workflowRequest: WorkflowRequest): Prom
       id: taskId,
       processId: workflowRequest.processId,
       taskDefinition: {
-        code: 'LOAN_APPLICATION',
+        code: 'TASK_LOAN_APPLICATION',
       },
     },
   })
@@ -105,8 +105,8 @@ async function createTaskLoanApplication(workflowRequest: WorkflowRequest): Prom
 async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: number): Promise<Task> {
   const taskId = uuid4()
 
-  const firstName = getElementValueAsString(taskLoanApplication, 'firstName')
-  const lastName = getElementValueAsString(taskLoanApplication, 'lastName')
+  const firstName = getElementValueAsString(taskLoanApplication, 'FIRSTNAME')
+  const lastName = getElementValueAsString(taskLoanApplication, 'LASTNAME')
 
   await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished({
     task: {
@@ -114,11 +114,12 @@ async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: numbe
       id: taskId,
       processId: taskLoanApplication.processId,
       taskDefinition: {
-        code: 'APPROVE_LOAN',
+        code: 'TASK_APPROVE_LOAN',
       },
       elementValues: {
-        name: [{ type: 'STRING', value: `${firstName} ${lastName}` }],
-        amountRequested: [{ type: 'STRING', value: amountEUR.toString() }],
+        "FIRSTNAME": [{ type: 'STRING', value: firstName }],
+        "LASTNAME": [{ type: 'STRING', value: lastName }],
+        "AMOUNT": [{ type: 'STRING', value: amountEUR.toString() }],
       },
     },
   })
