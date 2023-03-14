@@ -47,7 +47,7 @@ const { defaultWorkerLogger: logger } = proxySinks<LoggerSinks>()
 export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRequest): Promise<WorkflowResponse> {
   logger.info('Start', {})
 
-  const taskLoanApplication = await createTaskLoanApplication(workflowRequest)
+  const taskLoanApplication = await createTaskLoanApplicationForm(workflowRequest)
 
   const currency = getElementValueAsString(taskLoanApplication, 'CURRENCY')
   const amount = getElementValueAsString(taskLoanApplication, 'AMOUNT')
@@ -76,7 +76,7 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
   return { message: 'OK' }
 }
 
-async function createTaskLoanApplication(workflowRequest: WorkflowRequest): Promise<Task> {
+async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): Promise<Task> {
   const taskId = uuid4()
 
   await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished({
