@@ -10,6 +10,9 @@
 # Ignore build assets
 lib/
 
+# Ignore local configuration
+application-local.yaml
+
 ######################
 # Node
 ######################
