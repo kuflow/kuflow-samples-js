@@ -22,12 +22,12 @@
  */
 import { KuFlowRestClient } from '@kuflow/kuflow-rest'
 import { createKuFlowAsyncActivities, createKuFlowSyncActivities } from '@kuflow/kuflow-temporal-activity-kuflow'
-import { KuFlowAuthorizationTokenProvider } from '@kuflow/kuflow-temporal-core'
-import { NativeConnection, Worker } from '@temporalio/worker'
+import { KuflowTemporalConnection } from '@kuflow/kuflow-temporal-core'
+import { Runtime } from '@temporalio/worker'
 import fs from 'fs'
 import YAML from 'yaml'
 
-import * as activities from './activities'
+import { Activities } from './activities'
 
 /**
  * Run a Worker with an mTLS connection, configuration is provided via environment variables.
@@ -35,20 +35,6 @@ import * as activities from './activities'
  */
 async function main(): Promise<void> {
   const workerProperties = loadConfiguration()
-
-  // Create a Temporal NativeConnection
-  const connection = await NativeConnection.connect({
-    address: workerProperties.temporal.target,
-    tls: {
-      serverNameOverride: workerProperties.temporal.mutualTls.serverNameOverride,
-      serverRootCACertificate: Buffer.from(workerProperties.temporal.mutualTls.caData),
-      // See docs for other TLS options
-      clientCertPair: {
-        crt: Buffer.from(workerProperties.temporal.mutualTls.certData),
-        key: Buffer.from(workerProperties.temporal.mutualTls.keyData),
-      },
-    },
-  })
 
   // Instantiate KuFlow rest client
   const kuFlowRestClient = new KuFlowRestClient(
@@ -61,32 +47,46 @@ async function main(): Promise<void> {
     },
   )
 
-  // Create a KuFlowAuthorizationTokenProvider
-  const kuFlowTemporalConnection = KuFlowAuthorizationTokenProvider.instance({
-    temporalConnection: connection,
-    kuFlowRestClient,
-  })
-
-  const worker = await Worker.create({
-    connection,
-    namespace: workerProperties.temporal.namespace,
-    workflowsPath: require.resolve('./workflows'),
-    activities: {
-      ...createKuFlowSyncActivities(kuFlowRestClient),
-      ...createKuFlowAsyncActivities(kuFlowRestClient),
-      ...activities,
+  // Configure kuflow temporal connection
+  const kuflowTemporalConnection = await KuflowTemporalConnection.instance({
+    kuflow: {
+      restClient: kuFlowRestClient,
     },
-    taskQueue: workerProperties.temporal.kuflowQueue,
+    temporalio: {
+      connection: {
+        address: workerProperties.temporal.target,
+        tls: {
+          serverNameOverride: workerProperties.temporal.mutualTls.serverNameOverride,
+          serverRootCACertificate: Buffer.from(workerProperties.temporal.mutualTls.caData),
+          // See docs for other TLS options
+          clientCertPair: {
+            crt: Buffer.from(workerProperties.temporal.mutualTls.certData),
+            key: Buffer.from(workerProperties.temporal.mutualTls.keyData),
+          },
+        },
+      },
+      worker: {
+        namespace: workerProperties.temporal.namespace,
+        taskQueue: workerProperties.temporal.kuflowQueue,
+        workflowsPath: require.resolve('./workflows'),
+        activities: {
+          ...createKuFlowSyncActivities(kuFlowRestClient),
+          ...createKuFlowAsyncActivities(kuFlowRestClient),
+          ...Activities,
+        },
+      },
+    },
   })
-  console.log('Worker connection successfully established')
 
-  await worker.run()
-  await connection.close()
-  await kuFlowTemporalConnection.close()
+  Runtime.instance().logger.info('Worker connection successfully established')
+
+  await kuflowTemporalConnection.runWorker()
+
+  await kuflowTemporalConnection.close()
 }
 
-main().catch(err => {
-  console.error(err)
+main().catch(error => {
+  Runtime.instance().logger.error('Sample failed', { error })
   process.exit(1)
 })
 
@@ -114,9 +114,10 @@ export interface WorkerProperties {
 }
 
 export function loadConfiguration(): WorkerProperties {
-  const applicationFiles = fs.readFileSync('./application.yaml', 'utf8')
+  const applicationMainYaml = readYamlFile('./application.yaml')
+  const applicationLocalYaml = readYamlFile('./application-local.yaml')
 
-  const applicationYaml = YAML.parse(applicationFiles)
+  const applicationYaml = deepMerge(applicationMainYaml, applicationLocalYaml)
 
   return {
     kuflow: {
@@ -138,6 +139,28 @@ export function loadConfiguration(): WorkerProperties {
       },
     },
   }
+}
+
+function readYamlFile(path: string): any {
+  if (!fs.existsSync(path)) {
+    return {}
+  }
+
+  const yaml = fs.readFileSync(path, 'utf8')
+
+  return YAML.parse(yaml)
+}
+
+function deepMerge(source1: any, source2: any): object {
+  const result = { ...source1, ...source2 }
+  for (const key of Object.keys(result)) {
+    result[key] =
+      typeof source1[key] === 'object' && typeof source2[key] === 'object'
+        ? deepMerge(source1[key], source2[key])
+        : structuredClone(result[key])
+  }
+
+  return result
 }
 
 function retrieveProperty(config: any, path: string): string {

@@ -20,12 +20,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-import { getElementValueAsString, Process, Task } from '@kuflow/kuflow-rest'
-import type { createKuFlowAsyncActivities, createKuFlowSyncActivities } from '@kuflow/kuflow-temporal-activity-kuflow'
-import { WorkflowRequest, WorkflowResponse } from '@kuflow/kuflow-temporal-activity-kuflow'
-import { LoggerSinks, proxyActivities, proxySinks, uuid4 } from '@temporalio/workflow'
+import { addElementValueAsString, getElementValueAsString, type Process, type Task } from '@kuflow/kuflow-rest'
+import {
+  type createKuFlowAsyncActivities,
+  type createKuFlowSyncActivities,
+  type CreateTaskRequest,
+  type SaveProcessElementRequest,
+  type WorkflowRequest,
+  type WorkflowResponse,
+} from '@kuflow/kuflow-temporal-activity-kuflow'
+import { type LoggerSinks, proxyActivities, proxySinks, uuid4 } from '@temporalio/workflow'
 
-import type * as activities from './activities'
+import { type Activities } from './activities'
 
 const kuFlowSyncActivities = proxyActivities<ReturnType<typeof createKuFlowSyncActivities>>({
   startToCloseTimeout: '10 minutes',
@@ -37,7 +43,7 @@ const kuFlowAsyncActivities = proxyActivities<ReturnType<typeof createKuFlowAsyn
   scheduleToCloseTimeout: '356 days',
 })
 
-const { convert } = proxyActivities<typeof activities>({
+const activities = proxyActivities<typeof Activities>({
   startToCloseTimeout: '1 minute',
 })
 
@@ -48,6 +54,8 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
   logger.info('Start', {})
 
   const taskLoanApplication = await createTaskLoanApplicationForm(workflowRequest)
+
+  await updateProcessMetadata(taskLoanApplication)
 
   const currency = getElementValueAsString(taskLoanApplication, 'CURRENCY')
   const amount = getElementValueAsString(taskLoanApplication, 'AMOUNT')
@@ -85,7 +93,7 @@ async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): 
       id: taskId,
       processId: workflowRequest.processId,
       taskDefinition: {
-        code: 'TASK_LOAN_APPLICATION',
+        code: 'LOAN_APPLICATION',
       },
     },
   })
@@ -93,6 +101,25 @@ async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): 
   const { task } = await kuFlowSyncActivities.KuFlow_Engine_retrieveTask({ taskId })
 
   return task
+}
+
+async function updateProcessMetadata(taskLoanApplication: Task): Promise<void> {
+  const firstName = getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+  const lastName = getElementValueAsString(taskLoanApplication, 'LAST_NAME')
+
+  const requestFirstName: SaveProcessElementRequest = {
+    processId: taskLoanApplication.processId,
+    elementDefinitionCode: 'FIRST_NAME',
+  }
+  addElementValueAsString(requestFirstName, firstName)
+  await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestFirstName)
+
+  const requestLastName: SaveProcessElementRequest = {
+    processId: taskLoanApplication.processId,
+    elementDefinitionCode: 'LAST_NAME',
+  }
+  addElementValueAsString(requestLastName, lastName)
+  await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestLastName)
 }
 
 /**
@@ -105,24 +132,24 @@ async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): 
 async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: number): Promise<Task> {
   const taskId = uuid4()
 
-  const firstName = getElementValueAsString(taskLoanApplication, 'FIRSTNAME')
-  const lastName = getElementValueAsString(taskLoanApplication, 'LASTNAME')
+  const firstName = getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+  const lastName = getElementValueAsString(taskLoanApplication, 'LAST_NAME')
 
-  await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished({
+  const request: CreateTaskRequest = {
     task: {
       objectType: 'TASK',
       id: taskId,
       processId: taskLoanApplication.processId,
       taskDefinition: {
-        code: 'TASK_APPROVE_LOAN',
-      },
-      elementValues: {
-        "FIRSTNAME": [{ type: 'STRING', value: firstName }],
-        "LASTNAME": [{ type: 'STRING', value: lastName }],
-        "AMOUNT": [{ type: 'STRING', value: amountEUR.toString() }],
+        code: 'APPROVE_LOAN',
       },
     },
-  })
+  }
+  addElementValueAsString(request.task, 'FIRST_NAME', firstName)
+  addElementValueAsString(request.task, 'LAST_NAME', lastName)
+  addElementValueAsString(request.task, 'AMOUNT', amountEUR.toString())
+
+  await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished(request)
 
   const { task } = await kuFlowSyncActivities.KuFlow_Engine_retrieveTask({ taskId })
 
@@ -176,7 +203,7 @@ async function convertToEuros(currency: string, amount: string): Promise<number>
     return parseFloat(amount)
   }
 
-  const amountConverted = await convert(amount, currency, 'EUR')
+  const amountConverted = await activities.Currency_convert(amount, currency, 'EUR')
 
   return parseFloat(amountConverted)
 }

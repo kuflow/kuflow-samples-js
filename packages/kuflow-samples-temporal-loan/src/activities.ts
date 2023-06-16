@@ -20,10 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+import { catchAllErrors } from '@kuflow/kuflow-temporal-activity-kuflow'
 import { ApplicationFailure } from '@temporalio/activity'
 import axios from 'axios'
 
-export async function convert(amount: string, from: string, to: string): Promise<string> {
+export const Activities = {
+  Currency_convert: catchAllErrors(currencyConvert),
+}
+
+async function currencyConvert(amount: string, from: string, to: string): Promise<string> {
   const amountNumber = parseFloat(amount)
 
   const fromTransformed = transformCurrencyCode(from)
