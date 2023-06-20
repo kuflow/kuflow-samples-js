@@ -20,7 +20,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-import { addElementValueAsString, getElementValueAsString, type Process, type Task } from '@kuflow/kuflow-rest'
+
+import { type Process, type Task, TaskUtils } from '@kuflow/kuflow-rest'
 import {
   type createKuFlowAsyncActivities,
   type createKuFlowSyncActivities,
@@ -29,6 +30,9 @@ import {
   type WorkflowRequest,
   type WorkflowResponse,
 } from '@kuflow/kuflow-temporal-activity-kuflow'
+// Import from here to avoid the following error:
+//   Your Workflow code (or a library used by your Workflow code) is importing the following disallowed modules...
+import { SaveProcessElementRequestUtils } from '@kuflow/kuflow-temporal-activity-kuflow/lib/utils'
 import { type LoggerSinks, proxyActivities, proxySinks, uuid4 } from '@temporalio/workflow'
 
 import { type Activities } from './activities'
@@ -57,15 +61,15 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
 
   await updateProcessMetadata(taskLoanApplication)
 
-  const currency = getElementValueAsString(taskLoanApplication, 'CURRENCY')
-  const amount = getElementValueAsString(taskLoanApplication, 'AMOUNT')
+  const currency = TaskUtils.getElementValueAsString(taskLoanApplication, 'CURRENCY')
+  const amount = TaskUtils.getElementValueAsString(taskLoanApplication, 'AMOUNT')
 
   const amountEUR = await convertToEuros(currency, amount)
 
   let loanAuthorized = true
   if (amountEUR > 5_000) {
     const taskApproveLoan = await createTaskApproveLoan(taskLoanApplication, amountEUR)
-    const approval = getElementValueAsString(taskApproveLoan, 'APPROVAL')
+    const approval = TaskUtils.getElementValueAsString(taskApproveLoan, 'APPROVAL')
 
     loanAuthorized = approval === 'YES'
   }
@@ -104,21 +108,21 @@ async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): 
 }
 
 async function updateProcessMetadata(taskLoanApplication: Task): Promise<void> {
-  const firstName = getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
-  const lastName = getElementValueAsString(taskLoanApplication, 'LAST_NAME')
+  const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+  const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
 
   const requestFirstName: SaveProcessElementRequest = {
     processId: taskLoanApplication.processId,
     elementDefinitionCode: 'FIRST_NAME',
   }
-  addElementValueAsString(requestFirstName, firstName)
+  SaveProcessElementRequestUtils.addElementValueAsString(requestFirstName, firstName)
   await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestFirstName)
 
   const requestLastName: SaveProcessElementRequest = {
     processId: taskLoanApplication.processId,
     elementDefinitionCode: 'LAST_NAME',
   }
-  addElementValueAsString(requestLastName, lastName)
+  SaveProcessElementRequestUtils.addElementValueAsString(requestLastName, lastName)
   await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestLastName)
 }
 
@@ -132,8 +136,8 @@ async function updateProcessMetadata(taskLoanApplication: Task): Promise<void> {
 async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: number): Promise<Task> {
   const taskId = uuid4()
 
-  const firstName = getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
-  const lastName = getElementValueAsString(taskLoanApplication, 'LAST_NAME')
+  const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+  const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
 
   const request: CreateTaskRequest = {
     task: {
@@ -145,9 +149,9 @@ async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: numbe
       },
     },
   }
-  addElementValueAsString(request.task, 'FIRST_NAME', firstName)
-  addElementValueAsString(request.task, 'LAST_NAME', lastName)
-  addElementValueAsString(request.task, 'AMOUNT', amountEUR.toString())
+  TaskUtils.addElementValueAsString(request.task, 'FIRST_NAME', firstName)
+  TaskUtils.addElementValueAsString(request.task, 'LAST_NAME', lastName)
+  TaskUtils.addElementValueAsString(request.task, 'AMOUNT', amountEUR.toString())
 
   await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished(request)
 

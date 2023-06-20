@@ -20,6 +20,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 import { catchAllErrors } from '@kuflow/kuflow-temporal-activity-kuflow'
 import { ApplicationFailure } from '@temporalio/activity'
 import axios from 'axios'
