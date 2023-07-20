@@ -101,9 +101,9 @@ export interface WorkerProperties {
     }
   }
   temporal: {
+    target?: string
     namespace: string
     kuflowQueue: string
-    target: string
     mutualTls: {
       caData: string
       certData: string
@@ -128,7 +128,7 @@ export function loadConfiguration(): WorkerProperties {
       },
     },
     temporal: {
-      target: retrieveProperty(applicationYaml, 'temporal.target'),
+      target: findProperty(applicationYaml, 'temporal.target'),
       namespace: retrieveProperty(applicationYaml, 'temporal.namespace'),
       kuflowQueue: retrieveProperty(applicationYaml, 'temporal.kuflow-queue'),
       mutualTls: {
