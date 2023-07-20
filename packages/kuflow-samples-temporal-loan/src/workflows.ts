@@ -81,8 +81,6 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
     await createTaskNotificationRejection(process)
   }
 
-  await kuFlowSyncActivities.KuFlow_Engine_completeProcess({ processId: workflowRequest.processId })
-
   logger.info('End', {})
 
   return { message: 'OK' }

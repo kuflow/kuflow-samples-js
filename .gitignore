@@ -8,3 +8,8 @@
 ######################
 .vscode/*
 !.vscode/settings.json
+
+######################
+# Configuration
+######################
+application-local*.yaml
