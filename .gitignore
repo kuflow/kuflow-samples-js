@@ -6,4 +6,10 @@
 ######################
 # Visual Studio Code
 ######################
-.vscode/
+.vscode/*
+!.vscode/settings.json
+
+######################
+# Configuration
+######################
+application-local*.yaml
