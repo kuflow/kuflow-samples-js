@@ -23,27 +23,20 @@
 
 import { type Process, type Task, TaskUtils } from '@kuflow/kuflow-rest'
 import {
-  type createKuFlowAsyncActivities,
-  type createKuFlowSyncActivities,
-  type CreateTaskRequest,
+  type createKuFlowActivities,
   type SaveProcessElementRequest,
   type WorkflowRequest,
   type WorkflowResponse,
 } from '@kuflow/kuflow-temporal-activity-kuflow'
 // Import from here to avoid the following error:
 //   Your Workflow code (or a library used by your Workflow code) is importing the following disallowed modules...
-import { SaveProcessElementRequestUtils } from '@kuflow/kuflow-temporal-activity-kuflow/lib/utils'
-import { type LoggerSinks, proxyActivities, proxySinks, uuid4 } from '@temporalio/workflow'
+import { KUFLOW_ENGINE_SIGNAL_COMPLETED_TASK, SaveProcessElementRequestUtils } from '@kuflow/kuflow-temporal-activity-kuflow/lib/utils'
+import { condition, defineSignal, type LoggerSinks, proxyActivities, proxySinks, setHandler, uuid4 } from '@temporalio/workflow'
 
 import { type Activities } from './activities'
 
-const kuFlowSyncActivities = proxyActivities<ReturnType<typeof createKuFlowSyncActivities>>({
+const kuFlowActivities = proxyActivities<ReturnType<typeof createKuFlowActivities>>({
   startToCloseTimeout: '10 minutes',
-  scheduleToCloseTimeout: '356 days',
-})
-
-const kuFlowAsyncActivities = proxyActivities<ReturnType<typeof createKuFlowAsyncActivities>>({
-  startToCloseTimeout: '1 day',
   scheduleToCloseTimeout: '356 days',
 })
 
@@ -53,8 +46,16 @@ const activities = proxyActivities<typeof Activities>({
 
 const { defaultWorkerLogger: logger } = proxySinks<LoggerSinks>()
 
+export const kuFlowEngineCompletedTaskSignal = defineSignal<[string]>(KUFLOW_ENGINE_SIGNAL_COMPLETED_TASK)
+
 /** A workflow that simply calls an activity */
 export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRequest): Promise<WorkflowResponse> {
+  const kuFlowCompletedTaskIds: string[] = []
+
+  setHandler(kuFlowEngineCompletedTaskSignal, (taskId: string) => {
+    kuFlowCompletedTaskIds.push(taskId)
+  })
+
   logger.info('Start', {})
 
   const taskLoanApplication = await createTaskLoanApplicationForm(workflowRequest)
@@ -84,134 +85,142 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
   logger.info('End', {})
 
   return { message: 'OK' }
-}
 
-async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): Promise<Task> {
-  const taskId = uuid4()
+  async function createTaskLoanApplicationForm(workflowRequest: WorkflowRequest): Promise<Task> {
+    const taskId = uuid4()
 
-  await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished({
-    task: {
+    const taskRequest: Task = {
       objectType: 'TASK',
       id: taskId,
       processId: workflowRequest.processId,
       taskDefinition: {
         code: 'LOAN_APPLICATION',
       },
-    },
-  })
+    }
 
-  const { task } = await kuFlowSyncActivities.KuFlow_Engine_retrieveTask({ taskId })
+    await createTaskAndWaitCompleted(taskRequest)
 
-  return task
-}
+    const { task } = await kuFlowActivities.KuFlow_Engine_retrieveTask({ taskId })
 
-async function updateProcessMetadata(taskLoanApplication: Task): Promise<void> {
-  const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
-  const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
-
-  const requestFirstName: SaveProcessElementRequest = {
-    processId: taskLoanApplication.processId,
-    elementDefinitionCode: 'FIRST_NAME',
+    return task
   }
-  SaveProcessElementRequestUtils.addElementValueAsString(requestFirstName, firstName)
-  await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestFirstName)
 
-  const requestLastName: SaveProcessElementRequest = {
-    processId: taskLoanApplication.processId,
-    elementDefinitionCode: 'LAST_NAME',
+  async function updateProcessMetadata(taskLoanApplication: Task): Promise<void> {
+    const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+    const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
+
+    const requestFirstName: SaveProcessElementRequest = {
+      processId: taskLoanApplication.processId,
+      elementDefinitionCode: 'FIRST_NAME',
+    }
+    SaveProcessElementRequestUtils.addElementValueAsString(requestFirstName, firstName)
+    await kuFlowActivities.KuFlow_Engine_saveProcessElement(requestFirstName)
+
+    const requestLastName: SaveProcessElementRequest = {
+      processId: taskLoanApplication.processId,
+      elementDefinitionCode: 'LAST_NAME',
+    }
+    SaveProcessElementRequestUtils.addElementValueAsString(requestLastName, lastName)
+    await kuFlowActivities.KuFlow_Engine_saveProcessElement(requestLastName)
   }
-  SaveProcessElementRequestUtils.addElementValueAsString(requestLastName, lastName)
-  await kuFlowSyncActivities.KuFlow_Engine_saveProcessElement(requestLastName)
-}
 
-/**
- * Create a task in KuFlow to approve the loan due to doesn't meet the restrictions.
- *
- * @param taskLoanApplication task created to request a loan
- * @param amountEUR amount requested
- * @return task created
- */
-async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: number): Promise<Task> {
-  const taskId = uuid4()
+  /**
+   * Create a task in KuFlow to approve the loan due to doesn't meet the restrictions.
+   *
+   * @param taskLoanApplication task created to request a loan
+   * @param amountEUR amount requested
+   * @return task created
+   */
+  async function createTaskApproveLoan(taskLoanApplication: Task, amountEUR: number): Promise<Task> {
+    const taskId = uuid4()
 
-  const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
-  const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
+    const firstName = TaskUtils.getElementValueAsString(taskLoanApplication, 'FIRST_NAME')
+    const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
 
-  const request: CreateTaskRequest = {
-    task: {
+    const taskRequest: Task = {
       objectType: 'TASK',
       id: taskId,
       processId: taskLoanApplication.processId,
       taskDefinition: {
         code: 'APPROVE_LOAN',
       },
-    },
-  }
-  TaskUtils.addElementValueAsString(request.task, 'FIRST_NAME', firstName)
-  TaskUtils.addElementValueAsString(request.task, 'LAST_NAME', lastName)
-  TaskUtils.addElementValueAsString(request.task, 'AMOUNT', amountEUR.toString())
+    }
+    TaskUtils.addElementValueAsString(taskRequest, 'FIRST_NAME', firstName)
+    TaskUtils.addElementValueAsString(taskRequest, 'LAST_NAME', lastName)
+    TaskUtils.addElementValueAsString(taskRequest, 'AMOUNT', amountEUR.toString())
 
-  await kuFlowAsyncActivities.KuFlow_Engine_createTaskAndWaitFinished(request)
+    await createTaskAndWaitCompleted(taskRequest)
 
-  const { task } = await kuFlowSyncActivities.KuFlow_Engine_retrieveTask({ taskId })
+    const { task } = await kuFlowActivities.KuFlow_Engine_retrieveTask({ taskId })
 
-  return task
-}
-
-/**
- * Create a notification task showing that the loan was granted.
- *
- * @param process Related process
- */
-async function createTaskNotificationGranted(process: Process): Promise<void> {
-  const taskId = uuid4()
-
-  await kuFlowSyncActivities.KuFlow_Engine_createTask({
-    task: {
-      objectType: 'TASK',
-      id: taskId,
-      processId: process.id ?? '',
-      taskDefinition: {
-        code: 'NOTIFICATION_GRANTED',
-      },
-      owner: process.initiator,
-    },
-  })
-}
-
-/**
- * Create a notification task showing that the loan was granted.
- *
- * @param process Related process
- */
-async function createTaskNotificationRejection(process: Process): Promise<void> {
-  const taskId = uuid4()
-
-  await kuFlowSyncActivities.KuFlow_Engine_createTask({
-    task: {
-      objectType: 'TASK',
-      id: taskId,
-      processId: process.id ?? '',
-      taskDefinition: {
-        code: 'NOTIFICATION_REJECTION',
-      },
-      owner: process.initiator,
-    },
-  })
-}
-
-async function convertToEuros(currency: string, amount: string): Promise<number> {
-  if (currency === 'EUR') {
-    return parseFloat(amount)
+    return task
   }
 
-  const amountConverted = await activities.Currency_convert(amount, currency, 'EUR')
+  /**
+   * Create a notification task showing that the loan was granted.
+   *
+   * @param process Related process
+   */
+  async function createTaskNotificationGranted(process: Process): Promise<void> {
+    const taskId = uuid4()
 
-  return parseFloat(amountConverted)
-}
+    await kuFlowActivities.KuFlow_Engine_createTask({
+      task: {
+        objectType: 'TASK',
+        id: taskId,
+        processId: process.id ?? '',
+        taskDefinition: {
+          code: 'NOTIFICATION_GRANTED',
+        },
+        owner: process.initiator,
+      },
+    })
+  }
 
-async function retrieveProcess(workflowRequest: WorkflowRequest): Promise<Process> {
-  const { process } = await kuFlowSyncActivities.KuFlow_Engine_retrieveProcess({ processId: workflowRequest.processId })
+  /**
+   * Create a notification task showing that the loan was granted.
+   *
+   * @param process Related process
+   */
+  async function createTaskNotificationRejection(process: Process): Promise<void> {
+    const taskId = uuid4()
 
-  return process
+    await kuFlowActivities.KuFlow_Engine_createTask({
+      task: {
+        objectType: 'TASK',
+        id: taskId,
+        processId: process.id ?? '',
+        taskDefinition: {
+          code: 'NOTIFICATION_REJECTION',
+        },
+        owner: process.initiator,
+      },
+    })
+  }
+
+  async function convertToEuros(currency: string, amount: string): Promise<number> {
+    if (currency === 'EUR') {
+      return parseFloat(amount)
+    }
+
+    const amountConverted = await activities.Currency_convert(amount, currency, 'EUR')
+
+    return parseFloat(amountConverted)
+  }
+
+  async function retrieveProcess(workflowRequest: WorkflowRequest): Promise<Process> {
+    const { process } = await kuFlowActivities.KuFlow_Engine_retrieveProcess({ processId: workflowRequest.processId })
+
+    return process
+  }
+
+  async function createTaskAndWaitCompleted(task: Task): Promise<void> {
+    const taskId = task.id
+    if (taskId == null) {
+      throw Error('task id is required')
+    }
+
+    await kuFlowActivities.KuFlow_Engine_createTask({ task })
+    await condition(() => kuFlowCompletedTaskIds.includes(taskId))
+  }
 }

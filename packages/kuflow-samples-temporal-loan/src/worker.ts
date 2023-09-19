@@ -21,8 +21,8 @@
  * THE SOFTWARE.
  */
 import { KuFlowRestClient } from '@kuflow/kuflow-rest'
-import { createKuFlowAsyncActivities, createKuFlowSyncActivities } from '@kuflow/kuflow-temporal-activity-kuflow'
-import { KuflowTemporalConnection } from '@kuflow/kuflow-temporal-core'
+import { createKuFlowActivities } from '@kuflow/kuflow-temporal-activity-kuflow'
+import { KuFlowTemporalConnection } from '@kuflow/kuflow-temporal-core'
 import { Runtime } from '@temporalio/worker'
 import fs from 'fs'
 import YAML from 'yaml'
@@ -48,30 +48,19 @@ async function main(): Promise<void> {
   )
 
   // Configure kuflow temporal connection
-  const kuflowTemporalConnection = await KuflowTemporalConnection.instance({
+  const kuflowTemporalConnection = await KuFlowTemporalConnection.instance({
     kuflow: {
       restClient: kuFlowRestClient,
     },
     temporalio: {
       connection: {
         address: workerProperties.temporal.target,
-        tls: {
-          serverNameOverride: workerProperties.temporal.mutualTls.serverNameOverride,
-          serverRootCACertificate: Buffer.from(workerProperties.temporal.mutualTls.caData),
-          // See docs for other TLS options
-          clientCertPair: {
-            crt: Buffer.from(workerProperties.temporal.mutualTls.certData),
-            key: Buffer.from(workerProperties.temporal.mutualTls.keyData),
-          },
-        },
       },
       worker: {
-        namespace: workerProperties.temporal.namespace,
         taskQueue: workerProperties.temporal.kuflowQueue,
         workflowsPath: require.resolve('./workflows'),
         activities: {
-          ...createKuFlowSyncActivities(kuFlowRestClient),
-          ...createKuFlowAsyncActivities(kuFlowRestClient),
+          ...createKuFlowActivities(kuFlowRestClient),
           ...Activities,
         },
       },
@@ -102,14 +91,7 @@ export interface WorkerProperties {
   }
   temporal: {
     target?: string
-    namespace: string
     kuflowQueue: string
-    mutualTls: {
-      caData: string
-      certData: string
-      keyData: string
-      serverNameOverride?: string
-    }
   }
 }
 
@@ -129,14 +111,7 @@ export function loadConfiguration(): WorkerProperties {
     },
     temporal: {
       target: findProperty(applicationYaml, 'temporal.target'),
-      namespace: retrieveProperty(applicationYaml, 'temporal.namespace'),
       kuflowQueue: retrieveProperty(applicationYaml, 'temporal.kuflow-queue'),
-      mutualTls: {
-        caData: retrieveProperty(applicationYaml, 'temporal.mutual-tls.ca-data'),
-        certData: retrieveProperty(applicationYaml, 'temporal.mutual-tls.cert-data'),
-        keyData: retrieveProperty(applicationYaml, 'temporal.mutual-tls.key-data'),
-        serverNameOverride: findProperty(applicationYaml, 'temporal.mutual-tls.server-name-override'),
-      },
     },
   }
 }
