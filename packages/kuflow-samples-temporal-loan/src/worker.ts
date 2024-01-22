@@ -104,19 +104,19 @@ export function loadConfiguration(): WorkerProperties {
   return {
     kuflow: {
       api: {
-        endpoint: findProperty(applicationYaml, 'kuflow.api.endpoint'),
-        clientId: retrieveProperty(applicationYaml, 'kuflow.api.client-id'),
-        clientSecret: retrieveProperty(applicationYaml, 'kuflow.api.client-secret'),
+        endpoint: findProperty(applicationYaml, 'KUFLOW_API_ENDPOINT', 'kuflow.api.endpoint'),
+        clientId: retrieveProperty(applicationYaml, 'KUFLOW_API_CLIENTID', 'kuflow.api.client-id'),
+        clientSecret: retrieveProperty(applicationYaml, 'KUFLOW_API_CLIENTSECRET', 'kuflow.api.client-secret'),
       },
     },
     temporal: {
-      target: findProperty(applicationYaml, 'temporal.target'),
-      kuflowQueue: retrieveProperty(applicationYaml, 'temporal.kuflow-queue'),
+      target: findProperty(applicationYaml, 'TEMPORAL_TARGET', 'temporal.target'),
+      kuflowQueue: retrieveProperty(applicationYaml, 'TEMPORAL_KUFLOWQUEUE', 'temporal.kuflow-queue'),
     },
   }
 }
 
-function readYamlFile(path: string): any {
+function readYamlFile(path: string): Record<string, unknown> {
   if (!fs.existsSync(path)) {
     return {}
   }
@@ -126,20 +126,20 @@ function readYamlFile(path: string): any {
   return YAML.parse(yaml)
 }
 
-function deepMerge(source1: any, source2: any): object {
-  const result: Record<string, unknown> = { ...source1, ...source2 }
+function deepMerge(source1: Record<string, unknown>, source2: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...source1, ...source2 }
   for (const key of Object.keys(result)) {
     result[key] =
       typeof source1[key] === 'object' && typeof source2[key] === 'object'
-        ? deepMerge(source1[key], source2[key])
+        ? deepMerge(source1[key] as Record<string, unknown>, source2[key] as Record<string, unknown>)
         : structuredClone(result[key])
   }
 
   return result
 }
 
-function retrieveProperty(config: any, path: string): string {
-  const value = findProperty(config, path)
+function retrieveProperty(config: Record<string, unknown>, environmentName: string, path: string): string {
+  const value = findProperty(config, environmentName, path)
   if (value == null) {
     throw new ReferenceError(`${path} variable is not defined`)
   }
@@ -147,15 +147,28 @@ function retrieveProperty(config: any, path: string): string {
   return value
 }
 
-function findProperty(currentConfig: any, currentPath: string): string | undefined {
-  const [property, ...restPath] = currentPath.split('.')
+function findProperty(currentConfig: Record<string, unknown>, propertyEnvironmentName: string, propertyPath: string): string | undefined {
+  if (process.env[propertyEnvironmentName] != null) {
+    return process.env[propertyEnvironmentName]
+  }
+
+  return findPropertyInConfig(currentConfig, propertyPath)
+
+}
+
+function findPropertyInConfig(currentConfig: Record<string, unknown>, propertyPath: string): string | undefined {
+  const [property, ...restPath] = propertyPath.split('.')
   const value = currentConfig[property]
   if (value == null) {
     return undefined
   }
   if (typeof value === 'object') {
-    return findProperty(value, restPath.join('.'))
+    return findPropertyInConfig(value as Record<string, unknown>, restPath.join('.'))
   }
 
-  return value?.toString()
+  if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString()
+  }
+
+  return undefined
 }
