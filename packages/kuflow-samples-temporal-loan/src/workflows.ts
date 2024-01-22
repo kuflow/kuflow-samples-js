@@ -90,7 +90,6 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
     const taskId = uuid4()
 
     const taskRequest: Task = {
-      objectType: 'TASK',
       id: taskId,
       processId: workflowRequest.processId,
       taskDefinition: {
@@ -138,7 +137,6 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
     const lastName = TaskUtils.getElementValueAsString(taskLoanApplication, 'LAST_NAME')
 
     const taskRequest: Task = {
-      objectType: 'TASK',
       id: taskId,
       processId: taskLoanApplication.processId,
       taskDefinition: {
@@ -166,7 +164,6 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
 
     await kuFlowActivities.KuFlow_Engine_createTask({
       task: {
-        objectType: 'TASK',
         id: taskId,
         processId: process.id ?? '',
         taskDefinition: {
@@ -187,7 +184,6 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
 
     await kuFlowActivities.KuFlow_Engine_createTask({
       task: {
-        objectType: 'TASK',
         id: taskId,
         processId: process.id ?? '',
         taskDefinition: {
