@@ -127,7 +127,7 @@ function readYamlFile(path: string): any {
 }
 
 function deepMerge(source1: any, source2: any): object {
-  const result = { ...source1, ...source2 }
+  const result: Record<string, unknown> = { ...source1, ...source2 }
   for (const key of Object.keys(result)) {
     result[key] =
       typeof source1[key] === 'object' && typeof source2[key] === 'object'
