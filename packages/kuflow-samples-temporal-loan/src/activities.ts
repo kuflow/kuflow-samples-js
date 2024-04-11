@@ -34,10 +34,11 @@ async function currencyConvert(amount: string, from: string, to: string): Promis
 
   const fromTransformed = transformCurrencyCode(from)
   const toTransformed = transformCurrencyCode(to)
-  const endpoint = `https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${fromTransformed}/${toTransformed}.json`
+  const endpoint = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${fromTransformed}.json`
   const response = await axios.get(endpoint)
 
-  const conversion = response.data[toTransformed]
+  const conversionTable = response.data[fromTransformed]
+  const conversion = conversionTable[toTransformed]
 
   return (amountNumber * conversion).toString()
 }
