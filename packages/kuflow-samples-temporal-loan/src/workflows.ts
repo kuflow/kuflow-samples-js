@@ -22,8 +22,7 @@
  */
 
 import type { Process, ProcessItem } from '@kuflow/kuflow-rest'
-import type { createKuFlowActivities, ProcessItemCreateRequest } from '@kuflow/kuflow-temporal-activity-kuflow'
-import type { ProcessMetadataPatchRequest } from '@kuflow/kuflow-temporal-activity-kuflow/src/models/process'
+import type { createKuFlowActivities, ProcessItemCreateRequest, ProcessMetadataPatchRequest } from '@kuflow/kuflow-temporal-activity-kuflow'
 import {
   KUFLOW_ENGINE_SIGNAL_PROCESS_ITEM,
   type SignalProcessItem,
@@ -48,7 +47,7 @@ const activities = proxyActivities<typeof Activities>({
 export const kuFlowEngineSignalProcessItem = defineSignal<[SignalProcessItem]>(KUFLOW_ENGINE_SIGNAL_PROCESS_ITEM)
 
 /** A workflow that simply calls an activity */
-export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRequest): Promise<WorkflowResponse> {
+export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): Promise<WorkflowResponse> {
   const kuFlowCompletedTaskIds: string[] = []
 
   setHandler(kuFlowEngineSignalProcessItem, (signal: SignalProcessItem) => {
@@ -59,33 +58,37 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
 
   log.info('Start', {})
 
-  const processItemLoanApplication = await createProcessItemTaskLoanApplicationForm(workflowRequest)
-
-  await updateProcessMetadata(processItemLoanApplication)
-
-  const currency = `${processItemLoanApplication.task?.data?.value.CURRENCY}`
-  const amount = `${processItemLoanApplication.task?.data?.value.AMOUNT}`
-
-  const amountEUR = await convertToEuros(currency, amount)
-
-  let loanAuthorized = true
-  if (amountEUR > 5_000) {
-    const processItemApproveLoan = await createProcessItemTaskApproveLoan(processItemLoanApplication, amountEUR)
-    const approval = `${processItemApproveLoan.task?.data?.value.APPROVAL}`
-
-    loanAuthorized = approval === 'YES'
-  }
-
-  const process = await retrieveProcess(workflowRequest)
-  if (loanAuthorized) {
-    await createTaskNotificationGranted(process)
-  } else {
-    await createTaskNotificationRejection(process)
-  }
+  await runWorkflow(request)
 
   log.info('End', {})
 
   return { message: 'OK' }
+
+  async function runWorkflow(workflowRequest: WorkflowRequest): Promise<void> {
+    const processItemLoanApplication = await createProcessItemTaskLoanApplicationForm(workflowRequest)
+
+    await updateProcessMetadata(processItemLoanApplication)
+
+    const currency = `${processItemLoanApplication.task?.data?.value.CURRENCY}`
+    const amount = `${processItemLoanApplication.task?.data?.value.AMOUNT}`
+
+    const amountEUR = await convertToEuros(currency, amount)
+
+    let loanAuthorized = true
+    if (amountEUR > 5_000) {
+      const processItemApproveLoan = await createProcessItemTaskApproveLoan(processItemLoanApplication, amountEUR)
+      const approval = `${processItemApproveLoan.task?.data?.value.APPROVAL}`
+
+      loanAuthorized = approval === 'YES'
+    }
+
+    const process = await retrieveProcess(workflowRequest)
+    if (loanAuthorized) {
+      await createTaskNotificationGranted(process)
+    } else {
+      await createTaskNotificationRejection(process)
+    }
+  }
 
   async function createProcessItemTaskLoanApplicationForm(workflowRequest: WorkflowRequest): Promise<ProcessItem> {
     const processItemId = uuid7()
@@ -110,7 +113,7 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
     const firstName = `${processItemLoanApplication.task?.data?.value.FIRST_NAME}`
     const lastName = `${processItemLoanApplication.task?.data?.value.LAST_NAME}`
 
-    const request: ProcessMetadataPatchRequest = {
+    const processMetadataPatchRequest: ProcessMetadataPatchRequest = {
       processId: processItemLoanApplication.processId,
       jsonPatch: [
         {
@@ -126,7 +129,7 @@ export async function SampleEngineWorkerLoanWorkflow(workflowRequest: WorkflowRe
       ],
     }
 
-    await kuFlowActivities.KuFlow_Engine_patchProcessMetadata(request)
+    await kuFlowActivities.KuFlow_Engine_patchProcessMetadata(processMetadataPatchRequest)
   }
 
   /**
