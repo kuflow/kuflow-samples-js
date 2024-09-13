@@ -37,17 +37,19 @@
     "prettier:write": "prettier --write ."
   },
   "dependencies": {
-    "@kuflow/kuflow-temporal-activity-kuflow": "1.10.0",
-    "@temporalio/activity": "1.7.4",
-    "@temporalio/client": "1.7.4",
-    "@temporalio/worker": "1.7.4",
-    "@temporalio/workflow": "1.7.4",
+    "@kuflow/kuflow-temporal-workflow-kuflow": "2.0.2",
+    "@kuflow/kuflow-temporal-activity-kuflow": "2.0.2",
+    "@kuflow/kuflow-temporal-worker": "2.0.2",
+    "@temporalio/activity": "1.10.3",
+    "@temporalio/client": "1.10.3",
+    "@temporalio/worker": "1.10.3",
+    "@temporalio/workflow": "1.10.3",
     "axios": "1.4.0",
     "yaml": "2.3.1"
   },
   "devDependencies": {
-    "@tsconfig/node18": "18.2.2",
-    "@types/node": "18.16.20",
+    "@tsconfig/node22": "22.0.0",
+    "@types/node": "22.5.4",
     "@typescript-eslint/eslint-plugin": "6.21.0",
     "@typescript-eslint/parser": "6.21.0",
     "eslint": "8.57.0",

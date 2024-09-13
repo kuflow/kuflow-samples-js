@@ -20,9 +20,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 import { KuFlowRestClient } from '@kuflow/kuflow-rest'
 import { createKuFlowActivities } from '@kuflow/kuflow-temporal-activity-kuflow'
-import { KuFlowTemporalConnection } from '@kuflow/kuflow-temporal-core'
+import { KuFlowTemporalConnection } from '@kuflow/kuflow-temporal-worker'
 import { Runtime } from '@temporalio/worker'
 import fs from 'fs'
 import YAML from 'yaml'
@@ -153,7 +154,6 @@ function findProperty(currentConfig: Record<string, unknown>, propertyEnvironmen
   }
 
   return findPropertyInConfig(currentConfig, propertyPath)
-
 }
 
 function findPropertyInConfig(currentConfig: Record<string, unknown>, propertyPath: string): string | undefined {
