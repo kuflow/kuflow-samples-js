@@ -26,7 +26,6 @@ import type { createKuFlowActivities, ProcessItemCreateRequest, ProcessMetadataP
 import {
   KUFLOW_ENGINE_SIGNAL_PROCESS_ITEM,
   type SignalProcessItem,
-  SignalProcessItemType,
   uuid7,
   type WorkflowRequest,
   type WorkflowResponse,
@@ -51,7 +50,7 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
   const kuFlowCompletedTaskIds: string[] = []
 
   setHandler(kuFlowEngineSignalProcessItem, (signal: SignalProcessItem) => {
-    if (signal.type === SignalProcessItemType.TASK) {
+    if (signal.type === 'TASK') {
       kuFlowCompletedTaskIds.push(signal.id)
     }
   })
@@ -97,9 +96,7 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
       id: processItemId,
       type: 'TASK',
       processId: workflowRequest.processId,
-      task: {
-        taskDefinitionCode: 'LOAN_APPLICATION',
-      },
+      processItemDefinitionCode: 'LOAN_APPLICATION',
     }
 
     await createProcessItemAndWaitCompleted(processItemRequest)
@@ -149,8 +146,8 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
       id: processItemId,
       type: 'TASK',
       processId: processItemLoanApplication.processId,
+      processItemDefinitionCode: 'APPROVE_LOAN',
       task: {
-        taskDefinitionCode: 'APPROVE_LOAN',
         data: {
           value: {
             FIRST_NAME: firstName,
@@ -181,9 +178,7 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
       type: 'TASK',
       processId: process.id,
       ownerId: process.initiatorId,
-      task: {
-        taskDefinitionCode: 'NOTIFICATION_GRANTED',
-      },
+      processItemDefinitionCode: 'NOTIFICATION_GRANTED',
     })
   }
 
@@ -200,9 +195,7 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
       type: 'TASK',
       processId: process.id,
       ownerId: process.initiatorId,
-      task: {
-        taskDefinitionCode: 'NOTIFICATION_REJECTION',
-      },
+      processItemDefinitionCode: 'NOTIFICATION_GRANTED',
     })
   }
 
