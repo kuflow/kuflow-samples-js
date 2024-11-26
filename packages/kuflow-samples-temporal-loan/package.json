@@ -37,35 +37,36 @@
     "prettier:write": "prettier --write ."
   },
   "dependencies": {
-    "@kuflow/kuflow-temporal-workflow-kuflow": "2.1.0",
-    "@kuflow/kuflow-temporal-activity-kuflow": "2.1.0",
-    "@kuflow/kuflow-temporal-worker": "2.1.0",
+    "@kuflow/kuflow-temporal-activity-kuflow": "3.0.0",
+    "@kuflow/kuflow-temporal-worker": "3.0.0",
+    "@kuflow/kuflow-temporal-workflow-kuflow": "3.0.0",
     "@temporalio/activity": "1.10.3",
     "@temporalio/client": "1.10.3",
     "@temporalio/worker": "1.10.3",
     "@temporalio/workflow": "1.10.3",
-    "axios": "1.7.7",
-    "yaml": "2.5.1"
+    "axios": "1.7.8",
+    "yaml": "2.6.1"
   },
   "devDependencies": {
-    "@eslint/js": "9.8.0",
+    "@eslint/js": "9.15.0",
     "@tsconfig/node22": "22.0.0",
-    "@types/node": "22.5.4",
-    "@typescript-eslint/eslint-plugin": "8.5.0",
-    "@typescript-eslint/parser": "8.5.0",
-    "eslint": "9.8.0",
+    "@types/node": "22.9.0",
+    "@typescript-eslint/eslint-plugin": "8.16.0",
+    "@typescript-eslint/parser": "8.16.0",
+    "eslint": "9.15.0",
     "eslint-config-prettier": "9.1.0",
-    "eslint-plugin-headers": "1.1.2",
-    "eslint-plugin-n": "17.10.2",
+    "eslint-plugin-headers": "1.2.0",
+    "eslint-plugin-import": "2.31.0",
+    "eslint-plugin-n": "17.14.0",
     "eslint-plugin-prettier": "5.2.1",
-    "eslint-plugin-promise": "7.1.0",
+    "eslint-plugin-promise": "7.2.0",
     "eslint-plugin-simple-import-sort": "12.1.1",
-    "nodemon": "3.1.4",
-    "prettier": "3.3.3",
+    "nodemon": "3.1.7",
+    "prettier": "3.4.0",
     "rimraf": "6.0.1",
     "ts-node": "10.9.2",
     "typescript": "5.5.4",
-    "typescript-eslint": "8.0.1"
+    "typescript-eslint": "8.16.0"
   },
   "engines": {
     "node": ">=22.0.0"
