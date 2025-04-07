@@ -73,12 +73,18 @@ async function main(): Promise<void> {
   await kuflowTemporalConnection.runWorker()
 
   await kuflowTemporalConnection.close()
+
+  Runtime.instance().logger.info('Worker connection successfully closed')
 }
 
-main().catch(error => {
-  Runtime.instance().logger.error('Sample failed', { error })
-  process.exit(1)
-})
+main()
+  .then(() => {
+    process.exit(0)
+  })
+  .catch(error => {
+    console.error('Worker error', { error })
+    process.exit(1)
+  })
 
 // Helpers for configuring the mTLS client and worker samples
 

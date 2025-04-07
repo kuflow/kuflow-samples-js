@@ -152,7 +152,7 @@ export async function SampleEngineWorkerLoanWorkflow(request: WorkflowRequest): 
           value: {
             FIRST_NAME: firstName,
             LAST_NAME: lastName,
-            AMOUNT: amountEUR.toString(),
+            AMOUNT: amountEUR,
           },
         },
       },
